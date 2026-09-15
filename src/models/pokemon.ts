@@ -14,22 +14,6 @@ export interface PokemonArtwork {
   officialArtworkUrl?: string;
 }
 
-export interface ZaAvailability {
-  availableInZa: boolean | null;
-
-  wildZones?: number[];
-
-  canBeAlpha?: boolean;
-  canMegaEvolve?: boolean;
-
-  dayAvailability?: boolean;
-  nightAvailability?: boolean;
-
-  weatherConditions?: string[];
-
-  notes?: string;
-}
-
 export interface Pokemon {
   id: number;
 
@@ -47,6 +31,4 @@ export interface Pokemon {
   weight?: number;
 
   evolutionChainId?: number;
-
-  za: ZaAvailability;
 }

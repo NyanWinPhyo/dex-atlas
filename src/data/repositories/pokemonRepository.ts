@@ -108,10 +108,6 @@ function mapPokemon(
 
     height: rawPokemon.height,
     weight: rawPokemon.weight,
-
-    za: {
-      availableInZa: null,
-    },
   };
 }
 
