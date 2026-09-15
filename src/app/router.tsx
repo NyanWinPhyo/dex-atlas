@@ -1,9 +1,9 @@
 import { createBrowserRouter } from "react-router";
-
 import { AppLayout } from "./layout/AppLayout";
 import { DashboardPage } from "../pages/DashboardPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { PokedexPage } from "../pages/PokedexPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,12 +18,7 @@ export const router = createBrowserRouter([
 
       {
         path: "pokedex",
-        element: (
-          <PlaceholderPage
-            title="Pokédex"
-            description="Search, filter and explore Pokémon available in Pokémon Legends: Z-A."
-          />
-        ),
+        Component: PokedexPage,
       },
 
       {
