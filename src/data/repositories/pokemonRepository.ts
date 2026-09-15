@@ -1,4 +1,7 @@
-import { fetchPokemon } from "../api/pokeApi";
+import {
+  fetchPokemon,
+  fetchPokemonList,
+} from "../api/pokeApi";
 
 import type { PokeApiPokemonResponse } from "../api/pokeApiTypes";
 import type {
@@ -112,11 +115,57 @@ function mapPokemon(
   };
 }
 
+const pokemonCache = new Map<string, Pokemon>();
+
 export async function getPokemon(
   nameOrId: string | number,
   signal?: AbortSignal,
 ): Promise<Pokemon> {
-  const rawPokemon = await fetchPokemon(nameOrId, signal);
+  const cacheKey = String(nameOrId).trim().toLowerCase();
 
-  return mapPokemon(rawPokemon);
+  const cachedPokemon = pokemonCache.get(cacheKey);
+
+  if (cachedPokemon) {
+    return cachedPokemon;
+  }
+
+  const rawPokemon = await fetchPokemon(
+    nameOrId,
+    signal,
+  );
+
+  const pokemon = mapPokemon(rawPokemon);
+
+  pokemonCache.set(pokemon.name, pokemon);
+  pokemonCache.set(String(pokemon.id), pokemon);
+
+  return pokemon;
+}
+
+export interface PokemonPage {
+  pokemon: Pokemon[];
+  totalCount: number;
+}
+
+export async function getPokemonPage(
+  limit: number,
+  offset: number,
+  signal?: AbortSignal,
+): Promise<PokemonPage> {
+  const list = await fetchPokemonList(
+    limit,
+    offset,
+    signal,
+  );
+
+  const pokemon = await Promise.all(
+    list.results.map((entry) =>
+      getPokemon(entry.name, signal),
+    ),
+  );
+
+  return {
+    pokemon,
+    totalCount: list.count,
+  };
 }

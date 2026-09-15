@@ -1,4 +1,8 @@
-import type { PokeApiPokemonResponse } from "./pokeApiTypes";
+import type {
+  PokeApiListResponse,
+  PokeApiNamedResource,
+  PokeApiPokemonResponse,
+} from "./pokeApiTypes";
 
 const POKE_API_BASE_URL = "https://pokeapi.co/api/v2";
 
@@ -41,6 +45,19 @@ export function fetchPokemon(
 
   return fetchFromPokeApi<PokeApiPokemonResponse>(
     `/pokemon/${query}`,
+    signal,
+  );
+}
+
+export function fetchPokemonList(
+  limit: number,
+  offset: number,
+  signal?: AbortSignal,
+): Promise<PokeApiListResponse<PokeApiNamedResource>> {
+  return fetchFromPokeApi<
+    PokeApiListResponse<PokeApiNamedResource>
+  >(
+    `/pokemon?limit=${limit}&offset=${offset}`,
     signal,
   );
 }
