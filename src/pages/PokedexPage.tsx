@@ -1,6 +1,6 @@
 import {
-  type FormEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,163 +11,222 @@ import {
   Search,
 } from "lucide-react";
 
-import { PokemonCard } from "../components/pokemon/PokemonCard";
 import { PokemonGridCard } from "../components/pokemon/PokemonGridCard";
+import { TypeBadge } from "../components/pokemon/TypeBadge";
 
-import { PokeApiError } from "../data/api/pokeApi";
+import { getPokemonIndex } from "../data/repositories/pokemonIndexRepository";
+
+import type { PokemonIndexEntry } from "../models/pokemonIndex";
+import type { PokemonTypeName } from "../models/type";
 
 import {
-  getPokemon,
-  getPokemonPage,
-} from "../data/repositories/pokemonRepository";
+  formatDexNumber,
+  formatPokemonName,
+} from "../utils/pokemonFormatting";
 
-import type { Pokemon } from "../models/pokemon";
+const PAGE_SIZE = 48;
 
-const PAGE_SIZE = 12;
+type SortOption =
+  | "dex-asc"
+  | "dex-desc"
+  | "name-asc"
+  | "name-desc"
+  | "hp-desc"
+  | "attack-desc"
+  | "defense-desc"
+  | "speed-desc";
+
+const pokemonTypes: PokemonTypeName[] = [
+  "normal",
+  "fire",
+  "water",
+  "electric",
+  "grass",
+  "ice",
+  "fighting",
+  "poison",
+  "ground",
+  "flying",
+  "psychic",
+  "bug",
+  "rock",
+  "ghost",
+  "dragon",
+  "dark",
+  "steel",
+  "fairy",
+];
 
 export function PokedexPage() {
-  const [query, setQuery] = useState("pikachu");
+  const [allPokemon, setAllPokemon] = useState<
+    PokemonIndexEntry[]
+  >([]);
 
   const [selectedPokemon, setSelectedPokemon] =
-    useState<Pokemon | null>(null);
+    useState<PokemonIndexEntry | null>(null);
 
-  const [pokemonList, setPokemonList] = useState<Pokemon[]>(
-    [],
-  );
+  const [query, setQuery] = useState("");
+  const [generation, setGeneration] = useState("all");
+  const [type, setType] = useState("all");
+  const [sort, setSort] =
+    useState<SortOption>("dex-asc");
 
   const [page, setPage] = useState(1);
-  const [totalPokemon, setTotalPokemon] = useState(0);
 
-  const [isSearching, setIsSearching] = useState(false);
-  const [isGridLoading, setIsGridLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [searchError, setSearchError] = useState<
-    string | null
-  >(null);
-
-  const [gridError, setGridError] = useState<string | null>(
-    null,
-  );
-
-  const activeSearchRequest =
-    useRef<AbortController | null>(null);
-
-  async function searchPokemon(searchQuery: string) {
-    const cleanedQuery = searchQuery.trim();
-
-    if (!cleanedQuery) {
-      setSearchError(
-        "Enter a Pokémon name or Pokédex number.",
-      );
-
-      return;
-    }
-
-    activeSearchRequest.current?.abort();
-
-    const controller = new AbortController();
-
-    activeSearchRequest.current = controller;
-
-    try {
-      setIsSearching(true);
-      setSearchError(null);
-
-      const result = await getPokemon(
-        cleanedQuery,
-        controller.signal,
-      );
-
-      setSelectedPokemon(result);
-      setQuery(result.name);
-    } catch (caughtError) {
-      if (controller.signal.aborted) {
-        return;
-      }
-
-      if (
-        caughtError instanceof PokeApiError &&
-        caughtError.status === 404
-      ) {
-        setSearchError(
-          `No Pokémon could be found for "${cleanedQuery}".`,
-        );
-
-        return;
-      }
-
-      setSearchError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Something went wrong while loading Pokémon data.",
-      );
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsSearching(false);
-      }
-    }
-  }
-
-  useEffect(() => {
-    void searchPokemon("pikachu");
-
-    return () => {
-      activeSearchRequest.current?.abort();
-    };
-  }, []);
+  const resultsRef = useRef<HTMLElement | null>(null);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadPokemonPage() {
+    async function loadIndex() {
       try {
-        setIsGridLoading(true);
-        setGridError(null);
+        setIsLoading(true);
 
-        const offset = (page - 1) * PAGE_SIZE;
-
-        const result = await getPokemonPage(
-          PAGE_SIZE,
-          offset,
+        const data = await getPokemonIndex(
           controller.signal,
         );
 
-        setPokemonList(result.pokemon);
-        setTotalPokemon(result.totalCount);
+        setAllPokemon(data.pokemon);
       } catch (caughtError) {
         if (controller.signal.aborted) {
           return;
         }
 
-        setGridError(
+        setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Something went wrong while loading the Pokédex.",
+            : "Failed to load Pokédex.",
         );
       } finally {
         if (!controller.signal.aborted) {
-          setIsGridLoading(false);
+          setIsLoading(false);
         }
       }
     }
 
-    void loadPokemonPage();
+    void loadIndex();
 
-    return () => {
-      controller.abort();
-    };
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    resultsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }, [page]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const filteredPokemon = useMemo(() => {
+    const cleanedQuery = query
+      .trim()
+      .toLowerCase();
 
-    void searchPokemon(query);
+    const result = allPokemon.filter((pokemon) => {
+      const matchesQuery =
+        !cleanedQuery ||
+        pokemon.name.includes(cleanedQuery) ||
+        String(pokemon.nationalDexNumber).includes(
+          cleanedQuery,
+        );
+
+      const matchesGeneration =
+        generation === "all" ||
+        pokemon.generation === Number(generation);
+
+      const matchesType =
+        type === "all" ||
+        pokemon.types.includes(
+          type as PokemonTypeName,
+        );
+
+      return (
+        matchesQuery &&
+        matchesGeneration &&
+        matchesType
+      );
+    });
+
+    return [...result].sort((a, b) => {
+      switch (sort) {
+        case "dex-desc":
+          return b.nationalDexNumber - a.nationalDexNumber;
+
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+
+        case "hp-desc":
+          return b.baseStats.hp - a.baseStats.hp;
+
+        case "attack-desc":
+          return (
+            b.baseStats.attack -
+            a.baseStats.attack
+          );
+
+        case "defense-desc":
+          return (
+            b.baseStats.defense -
+            a.baseStats.defense
+          );
+
+        case "speed-desc":
+          return (
+            b.baseStats.speed -
+            a.baseStats.speed
+          );
+
+        default:
+          return a.nationalDexNumber - b.nationalDexNumber;
+      }
+    });
+
+  }, [
+    allPokemon,
+    query,
+    generation,
+    type,
+    sort,
+  ]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, generation, type, sort]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPokemon.length / PAGE_SIZE),
+  );
+
+  const currentPokemon = filteredPokemon.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
+
+  function handlePageChange(nextPage: number) {
+    const safePage = Math.min(
+      Math.max(nextPage, 1),
+      totalPages,
+    );
+
+    setPage(safePage);
   }
 
-  function handlePokemonSelection(pokemon: Pokemon) {
+  function handleSelect(
+    pokemon: PokemonIndexEntry,
+  ) {
     setSelectedPokemon(pokemon);
-    setQuery(pokemon.name);
-    setSearchError(null);
 
     window.scrollTo({
       top: 0,
@@ -175,174 +234,286 @@ export function PokedexPage() {
     });
   }
 
-  const totalPages = Math.ceil(
-    totalPokemon / PAGE_SIZE,
-  );
-
-  const firstPokemonNumber =
-    (page - 1) * PAGE_SIZE + 1;
-
-  const lastPokemonNumber = Math.min(
-    page * PAGE_SIZE,
-    totalPokemon,
-  );
-
   return (
     <div className="space-y-8">
       <header>
         <p className="text-sm font-medium text-cyan-300">
-          Pokédex
+          Universal Pokédex
         </p>
 
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
-          Pokémon Database
+        <h1 className="mt-2 text-3xl font-bold text-white">
+          Explore Pokémon
         </h1>
 
-        <p className="mt-2 max-w-2xl text-slate-400">
-          Search for a Pokémon directly or browse the
-          Pokédex below.
+        <p className="mt-2 text-slate-400">
+          Search, filter and sort Pokémon across every
+          generation.
         </p>
       </header>
 
-      <section className="space-y-4">
-        <form
-          onSubmit={handleSubmit}
-          className="flex max-w-3xl flex-col gap-3 sm:flex-row"
-        >
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
-            <input
-              type="search"
-              value={query}
-              onChange={(event) =>
-                setQuery(event.target.value)
-              }
-              placeholder="Try Pikachu, Lucario, or 25..."
-              aria-label="Search Pokémon"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.035] py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/40"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSearching}
-            className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSearching ? "Searching..." : "Search"}
-          </button>
-        </form>
-
-        {searchError && (
-          <div className="max-w-3xl rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300">
-            {searchError}
-          </div>
-        )}
-      </section>
-
       {selectedPokemon && (
-        <section>
-          <PokemonCard pokemon={selectedPokemon} />
+        <section className="max-w-3xl rounded-2xl border border-white/10 bg-white/[0.035] p-6">
+          <div className="flex flex-col gap-6 sm:flex-row">
+            <div className="flex h-48 w-full shrink-0 items-center justify-center rounded-2xl bg-white/[0.03] sm:w-48">
+              {selectedPokemon.artworkUrl && (
+                <img
+                  src={selectedPokemon.artworkUrl}
+                  alt={selectedPokemon.name}
+                  className="h-40 w-40 object-contain"
+                />
+              )}
+            </div>
+
+            <div className="flex-1">
+              <p className="text-sm text-slate-500">
+                {formatDexNumber(
+                  selectedPokemon.nationalDexNumber,
+                )}
+              </p>
+
+              <h2 className="mt-1 text-3xl font-bold text-white">
+                {formatPokemonName(
+                  selectedPokemon.name,
+                )}
+              </h2>
+
+              <div className="mt-3 flex gap-2">
+                {selectedPokemon.types.map((type) => (
+                  <TypeBadge
+                    key={type}
+                    type={type}
+                  />
+                ))}
+              </div>
+
+              <p className="mt-4 text-sm text-slate-400">
+                Generation{" "}
+                {selectedPokemon.generation ?? "Unknown"}
+              </p>
+            </div>
+          </div>
         </section>
       )}
 
-      <section className="space-y-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">
-              Browse Pokémon
-            </h2>
+      <section className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div className="relative">
+          <Search
+            size={18}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+          />
 
-            <p className="mt-1 text-sm text-slate-500">
-              Select a Pokémon to view its information
-              above.
-            </p>
-          </div>
-
-          {totalPokemon > 0 && (
-            <p className="text-sm text-slate-500">
-              {firstPokemonNumber}–{lastPokemonNumber} of{" "}
-              {totalPokemon}
-            </p>
-          )}
+          <input
+            value={query}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            placeholder="Search name or Pokédex number..."
+            className="w-full rounded-xl border border-white/10 bg-white/[0.035] py-3 pl-11 pr-4 text-sm text-white outline-none"
+          />
         </div>
 
-        {gridError && (
-          <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-300">
-            {gridError}
-          </div>
-        )}
+        <select
+          value={generation}
+          onChange={(event) =>
+            setGeneration(event.target.value)
+          }
+          className="rounded-xl border border-white/10 bg-[#0e131d] px-4 py-3 text-sm text-white"
+        >
+          <option value="all">All generations</option>
 
-        {isGridLoading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {Array.from({ length: PAGE_SIZE }).map(
-              (_, index) => (
-                <div
-                  key={index}
-                  className="aspect-[3/4] animate-pulse rounded-2xl border border-white/10 bg-white/[0.035]"
-                />
-              ),
-            )}
+          {Array.from({ length: 9 }, (_, index) => (
+            <option
+              key={index + 1}
+              value={index + 1}
+            >
+              Generation {index + 1}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={type}
+          onChange={(event) =>
+            setType(event.target.value)
+          }
+          className="rounded-xl border border-white/10 bg-[#0e131d] px-4 py-3 text-sm capitalize text-white"
+        >
+          <option value="all">All types</option>
+
+          {pokemonTypes.map((pokemonType) => (
+            <option
+              key={pokemonType}
+              value={pokemonType}
+            >
+              {pokemonType}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={sort}
+          onChange={(event) =>
+            setSort(event.target.value as SortOption)
+          }
+          className="rounded-xl border border-white/10 bg-[#0e131d] px-4 py-3 text-sm text-white"
+        >
+          <option value="dex-asc">
+            Dex number ↑
+          </option>
+
+          <option value="dex-desc">
+            Dex number ↓
+          </option>
+
+          <option value="name-asc">
+            Name A–Z
+          </option>
+
+          <option value="name-desc">
+            Name Z–A
+          </option>
+
+          <option value="hp-desc">
+            Highest HP
+          </option>
+
+          <option value="attack-desc">
+            Highest Attack
+          </option>
+
+          <option value="defense-desc">
+            Highest Defense
+          </option>
+
+          <option value="speed-desc">
+            Highest Speed
+          </option>
+        </select>
+      </section>
+
+      {isLoading && (
+        <p className="text-slate-400">
+          Loading Universal Pokédex...
+        </p>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-red-300">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && !error && (
+        <>
+        <section ref={resultsRef} className="scroll-mt-24 space-y-5">
+          <div className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">
+                Pokémon
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                {filteredPokemon.length} Pokémon found
+              </p>
+            </div>
+
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
           </div>
-        ) : (
+
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {pokemonList.map((pokemon) => (
+            {currentPokemon.map((pokemon) => (
               <PokemonGridCard
                 key={pokemon.id}
                 pokemon={pokemon}
                 isSelected={
                   selectedPokemon?.id === pokemon.id
                 }
-                onSelect={handlePokemonSelection}
+                onSelect={handleSelect}
               />
             ))}
           </div>
-        )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-white/10 pt-5">
-            <button
-              type="button"
-              disabled={page === 1 || isGridLoading}
-              onClick={() =>
-                setPage((currentPage) =>
-                  Math.max(1, currentPage - 1),
-                )
-              }
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <ChevronLeft size={17} />
-              Previous
-            </button>
-
-            <span className="text-sm text-slate-500">
-              Page {page} of {totalPages}
-            </span>
-
-            <button
-              type="button"
-              disabled={
-                page === totalPages || isGridLoading
-              }
-              onClick={() =>
-                setPage((currentPage) =>
-                  Math.min(
-                    totalPages,
-                    currentPage + 1,
-                  ),
-                )
-              }
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-              <ChevronRight size={17} />
-            </button>
+          <div className="border-t border-white/10 pt-6">
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
           </div>
-        )}
-      </section>
+        </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface PaginationControlsProps {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+function PaginationControls({
+  page,
+  totalPages,
+  onPageChange,
+}: PaginationControlsProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <button
+        type="button"
+        disabled={page === 1}
+        onClick={() => onPageChange(page - 1)}
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <ChevronLeft size={17} />
+
+        <span className="hidden sm:inline">
+          Previous
+        </span>
+      </button>
+
+      <label className="flex items-center gap-2 text-sm text-slate-400">
+        Page
+
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          value={page}
+          onChange={(event) => {
+            const nextPage = Number(event.target.value);
+
+            if (
+              Number.isInteger(nextPage) &&
+              nextPage >= 1 &&
+              nextPage <= totalPages
+            ) {
+              onPageChange(nextPage);
+            }
+          }}
+          className="w-20 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-center text-white outline-none focus:border-cyan-400/40"
+        />
+
+        of {totalPages}
+      </label>
+
+      <button
+        type="button"
+        disabled={page === totalPages}
+        onClick={() => onPageChange(page + 1)}
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <span className="hidden sm:inline">
+          Next
+        </span>
+
+        <ChevronRight size={17} />
+      </button>
     </div>
   );
 }

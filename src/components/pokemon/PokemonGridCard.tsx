@@ -1,6 +1,6 @@
 import { TypeBadge } from "./TypeBadge";
 
-import type { Pokemon } from "../../models/pokemon";
+import type { PokemonIndexEntry } from "../../models/pokemonIndex";
 
 import {
   formatDexNumber,
@@ -8,9 +8,9 @@ import {
 } from "../../utils/pokemonFormatting";
 
 interface PokemonGridCardProps {
-  pokemon: Pokemon;
+  pokemon: PokemonIndexEntry;
   isSelected?: boolean;
-  onSelect: (pokemon: Pokemon) => void;
+  onSelect: (pokemon: PokemonIndexEntry) => void;
 }
 
 export function PokemonGridCard({
@@ -31,9 +31,9 @@ export function PokemonGridCard({
       ].join(" ")}
     >
       <div className="flex aspect-square items-center justify-center rounded-xl bg-white/[0.03]">
-        {pokemon.artwork?.officialArtworkUrl ? (
+        {pokemon.artworkUrl ? (
           <img
-            src={pokemon.artwork.officialArtworkUrl}
+            src={pokemon.artworkUrl}
             alt={formatPokemonName(pokemon.name)}
             loading="lazy"
             className="h-[85%] w-[85%] object-contain transition-transform duration-200 group-hover:scale-105"
@@ -45,23 +45,18 @@ export function PokemonGridCard({
         )}
       </div>
 
-      <div className="mt-4">
-        <p className="text-xs text-slate-500">
-          {formatDexNumber(pokemon.nationalDexNumber)}
-        </p>
+      <p className="mt-4 text-xs text-slate-500">
+        {formatDexNumber(pokemon.nationalDexNumber)}
+      </p>
 
-        <h3 className="mt-1 truncate font-semibold text-white">
-          {formatPokemonName(pokemon.name)}
-        </h3>
+      <h3 className="mt-1 truncate font-semibold text-white">
+        {formatPokemonName(pokemon.name)}
+      </h3>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {pokemon.types.map((type) => (
-            <TypeBadge
-              key={type.slot}
-              type={type.name}
-            />
-          ))}
-        </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {pokemon.types.map((type) => (
+          <TypeBadge key={type} type={type} />
+        ))}
       </div>
     </button>
   );
