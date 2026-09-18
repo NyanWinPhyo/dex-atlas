@@ -1,75 +1,107 @@
-# React + TypeScript + Vite
+# DexAtlas
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, expandable Pokémon companion platform built with React and TypeScript.
 
-Currently, two official plugins are available:
+DexAtlas is designed to combine universal Pokémon reference data with interactive tools, personal collection tracking, team analysis, and game-specific companion guides in one responsive application.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The current development focus is **Pokémon Legends: Z-A**, while the underlying architecture is designed to support additional Pokémon games over time.
 
-## React Compiler
+> This project is currently under active development.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Current Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Universal Pokédex containing 1,025 Pokémon species
+- Fast local Pokédex index
+- Search by Pokémon name or Pokédex number
+- Filter by generation
+- Filter by type
+- Sort by:
+  - Pokédex number
+  - Name
+  - HP
+  - Attack
+  - Defense
+  - Speed
+- Responsive Pokémon grid
+- Pagination and page jumping
+- Pokémon type badges
+- Basic Pokémon stat data
+- Responsive desktop and mobile application shell
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Planned Features
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Universal Tools
 
-```
+- Dedicated Pokémon detail pages
+- Evolution information
+- Pokémon comparison
+- Type matchup calculator
+- Team builder
+- Team weakness and coverage analysis
+- Personal collection tracker
+- Shiny tracking
+- Saved teams
+- Import/export player data
+- Optional account and cloud synchronization
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+### Pokémon Legends: Z-A
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The first detailed game companion will focus on Pokémon Legends: Z-A.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Planned features include:
 
-```
+- Z-A-specific Pokédex
+- Wild Zone guides
+- Alpha Pokémon tracking
+- Shiny tracking
+- Mega Evolution tracking
+- Z-A Royale progression
+- Time, weather and spawn filtering
+- Team analysis
+- Battle reference tools
+- Collection and completion tracking
+
+Additional games may be added gradually in the future.
+
+---
+
+## Technology
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- PokéAPI
+- Git / GitHub
+
+Future infrastructure may include:
+
+- Supabase
+- PostgreSQL
+- PWA / offline support
+- Cloud synchronization
+
+---
+
+## Architecture
+
+The project separates universal Pokémon reference data from game-specific information.
+
+```text
+Universal Pokémon Data
+        |
+        +--- Game Data
+        |       |
+        |       +--- Pokémon Legends: Z-A
+        |       +--- Future Games
+        |
+        +--- Player Data
+                |
+                +--- Collection
+                +--- Teams
+                +--- Progress
